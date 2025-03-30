@@ -33,6 +33,8 @@ int main() {
         }
     }
 
+    std::cout << "ok" << std::endl;
+
     // Remove half of the key-value pairs from the Trie and the map
     int i = 0;
     for (auto it = map.begin(); it != map.end(); ) {
@@ -46,7 +48,9 @@ int main() {
     }
 
     // Check that the removed keys no longer exist in the Trie
+    int t = 0;
     for (const auto& pair : map) {
+        //std::cout << t++ << std::endl;
         if(trie.Get<std::string>(pair.first) == nullptr){
             std::cout << "Test failed: " << pair.first << " does not exist" << std::endl;
             return 1;

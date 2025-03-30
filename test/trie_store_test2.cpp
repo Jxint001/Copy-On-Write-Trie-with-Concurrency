@@ -20,6 +20,7 @@ void TrieStoreTest_BasicTest() {
   if (store.Get<uint32_t>("233") != std::nullopt) {
     std::cout << "Test failed: Expected std::nullopt" << std::endl;
   }
+  std::cout << "ok" << std::endl;
   store.Put<uint32_t>("233", 2333);
   {
     auto guard = store.Get<uint32_t>("233");
@@ -168,6 +169,7 @@ void TrieStoreTest_MixedConcurrentTest() {
 int main()
 {
   TrieStoreTest_BasicTest();
+  std::cout << "ok" << std::endl;
   TrieStoreTest_GuardTest();
   TrieStoreTest_MixedTest();
   TrieStoreTest_MixedConcurrentTest();
