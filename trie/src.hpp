@@ -234,13 +234,17 @@ class TrieStore {
     template <class T>
     auto Get(std::string_view key, size_t version = -1) -> std::optional<ValueGuard<T>> {
         //std::cout << "in storeGet" << std::endl;
+        std::shared_ptr<const Trie> trie;
+        {
         std::shared_lock<std::shared_mutex> lock(snapshots_lock_);
-        if (version >= snapshots_.size())  version = snapshots_.size() - 1;
-        const Trie& trie = snapshots_[version];
-        const T* val = trie.Get<T>(key);
+        if (version == size_t(-1))  version = snapshots_.size() - 1;
+        if (version >= snapshots_.size()) return std::nullopt;
+        trie = std::make_shared<Trie>(snapshots_[version]);
+        }
+        const T* val = trie->Get<T>(key);
 
         if (val == nullptr)  return std::nullopt;
-        return ValueGuard<T>(trie, *val);
+        return ValueGuard<T>(*trie, *val);
     }
 
     // This function will insert the key-value pair into the trie. If the key
@@ -250,9 +254,19 @@ class TrieStore {
     template <class T>
     size_t Put(std::string_view key, T value) {
         std::lock_guard<std::mutex> writeGuard(write_lock_);
+
+        std::shared_ptr<Trie> current_version;
+        {
+            std::shared_lock<std::shared_mutex> lock(snapshots_lock_);
+            current_version = std::make_shared<Trie>(snapshots_.back());
+        }
+
+        Trie new_trie = current_version->Put(key, std::move(value));
+
+        
         std::unique_lock<std::shared_mutex> lock(snapshots_lock_);
-        Trie new_trie = snapshots_.back().Put(key, std::move(value));
-        snapshots_.push_back(std::move(new_trie));
+        snapshots_.push_back(new_trie);
+        
         return snapshots_.size() - 1;
     }
 
@@ -261,10 +275,18 @@ class TrieStore {
     // if the key does not exist, version number should not be increased
     size_t Remove(std::string_view key) {
         std::lock_guard<std::mutex> writeGuard(write_lock_);
-        std::unique_lock<std::shared_mutex> lock(snapshots_lock_);
-        Trie new_trie = snapshots_.back().Remove(key);
 
-        if (new_trie == snapshots_.back())  return snapshots_.size() - 1;
+        std::shared_ptr<Trie> current_version;
+        {
+            std::shared_lock<std::shared_mutex> lock(snapshots_lock_);
+            current_version = std::make_shared<Trie>(snapshots_.back());
+        }
+
+        Trie new_trie = current_version->Remove(key);
+
+        if (new_trie == *current_version)  return snapshots_.size() - 1;
+
+        std::unique_lock<std::shared_mutex> lock(snapshots_lock_);
         snapshots_.push_back(std::move(new_trie));
         return snapshots_.size() - 1;
     }
